@@ -23,6 +23,7 @@ def extract_swatches(linear_image):
     # 平均輝度を見てゲインを自動調整、あるいは固定値(例: 5.0)を使用
     mean_val = np.mean(linear_image)
     if mean_val < 0.05:  # とても暗い場合
+        mean_val = max(mean_val, 1e-6)  # ゼロ除算防止
         gain = 0.18 / mean_val  # 中性グレー(0.18)付近まで持ち上げる
         print(f"画像が暗いため、Gain {gain:.2f}倍 で検出します")
     else:

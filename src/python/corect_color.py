@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from typing import Tuple, Literal
 from raw_to_png import develop_raw
 from extract_colorchecker import extract_swatches
+import cv2
 
 
 def load_lab_reference(filepath: str) -> np.ndarray:
@@ -67,12 +68,15 @@ def apply_rpcc_correction(
 
 # --- 実行例 ---
 if __name__ == "__main__":
-    reference_lab = load_lab_reference("ref_lab.txt") / 100.0  # 0-1に, (-1)-1正規化
+    reference_lab = load_lab_reference("ref_lab.txt")
     D65 = colour.CCS_ILLUMINANTS["CIE 1931 2 Degree Standard Observer"]["D65"]
     reference_xyz = colour.Lab_to_XYZ(reference_lab, illuminant=D65)
-    linear_image = develop_raw("sample.ARW")
+    print("Reference XYZ:")
+    print(reference_xyz)
+    linear_image = develop_raw("color_checker.CR3")
     linear_image = linear_image.astype(np.float32) / 65535.0  # 16bit -> 0.0-1.0 float
     linear_image = np.clip(linear_image, 0.0, 1.0)  # クランプ
+    print("[Max/Min] Linear Image:", np.max(linear_image), np.min(linear_image))
     measured_swatches = extract_swatches(linear_image)
 
     if measured_swatches is None:
@@ -85,15 +89,29 @@ if __name__ == "__main__":
         root_polynomial_expansion=True,  # これがTrueだとRPCC、Falseだと通常の多項式
     )
 
+    print("MRPCC Matrix:")
+    print(M_RPCC)
+
     # load image which need color correction
-    uncorrected_image = develop_raw("sample.CR3")
+    uncorrected_image = develop_raw("color_checker.CR3")
     uncorrected_image = uncorrected_image.astype(np.float32) / 65535.0
     uncorrected_image = np.clip(uncorrected_image, 0.0, 1.0)  # クランプ
+    print(
+        "[Max/Min] Uncorrected Image:",
+        np.max(uncorrected_image),
+        np.min(uncorrected_image),
+    )
 
     # RPCC を実行
-    result_img = apply_rpcc_correction(uncorrected_image, M_RPCC, degree=2)
+    result_xyz_img = apply_rpcc_correction(uncorrected_image, M_RPCC, degree=2)
 
-    plt.imshow(result_img)
+    # XYZ -> RGB変換 (sRGB)
+    result_img = colour.XYZ_to_sRGB(result_xyz_img)
+    result_img = np.clip(result_img, 0.0, 1.0)
+    viz_result = (result_img * 255).astype(np.uint8)
+
+    plt.imshow(viz_result)
     plt.title("RPCC Corrected Image")
     plt.axis("off")
     plt.show()
+    cv2.imwrite("corrected_image.png", cv2.cvtColor(viz_result, cv2.COLOR_RGB2BGR))
