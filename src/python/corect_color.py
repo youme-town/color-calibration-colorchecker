@@ -133,7 +133,7 @@ def apply_rpcc_correction(
 
     # Matrix multiplication: XYZ = M @ Expanded_RGB
     # (行列演算)
-    corrected_xyz = colour.algebra.vector_dot(RPCC_MATRIX, expanded_image)
+    corrected_xyz = colour.algebra.vecmul(RPCC_MATRIX, expanded_image)
 
     # Clip values to valid range (noise reduction)
     # (有効範囲にクリップ、ノイズ対策)
