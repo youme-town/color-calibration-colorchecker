@@ -1,0 +1,14 @@
+[project]
+name = "rgbcam-colorcalibration"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "colour-checker-detection[development]>=0.2.1",
+    "colour-science>=0.4.6",
+    "matplotlib>=3.10.7",
+    "numpy>=2.2.6",
+    "pillow>=12.0.0",
+    "rawpy>=0.25.1",
+]
