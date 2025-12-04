@@ -148,7 +148,7 @@ def main():
     # RPCC Matrix Calculation Example
     # (RPCC行列の計算例)
     # =================================================
-    reference_lab = load_lab_reference("data/ref_lab.txt")
+    reference_lab = load_lab_reference("data/ref_lab.txt")  # ColorChecker Lab reference
     D65 = colour.CCS_ILLUMINANTS["CIE 1931 2 Degree Standard Observer"]["D65"]
     reference_xyz = colour.Lab_to_XYZ(reference_lab, illuminant=D65)
     linear_image = develop_raw("data/IMG_9036.CR3")
