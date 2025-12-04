@@ -14,7 +14,7 @@ def develop_raw(
             gamma=(1, 1),
             # 2. 自動明るさ調整を無効化 (計測値を変えないため)
             no_auto_bright=True,
-            bright=16.0,
+            bright=1,
             # 3. ビット深度を16bitにする
             output_bps=16,
             # 4. カメラの色空間のまま出力する

@@ -8,7 +8,7 @@ from colour_checker_detection import (
 )
 
 
-def extract_swatches(linear_image, debug: bool = True) -> np.ndarray:
+def extract_swatches(linear_image, debug: bool = False) -> np.ndarray:
     """
     カラーチャートを検出して正確なLinear RGB値を抽出する関数
 

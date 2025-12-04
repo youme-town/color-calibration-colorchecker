@@ -95,15 +95,15 @@ def apply_rpcc_correction(
 
 # --- 実行例 ---
 if __name__ == "__main__":
-    reference_lab = load_lab_reference("ref_lab.txt")
+    reference_lab = load_lab_reference("data/ref_lab.txt")
     D65 = colour.CCS_ILLUMINANTS["CIE 1931 2 Degree Standard Observer"]["D65"]
     reference_xyz = colour.Lab_to_XYZ(reference_lab, illuminant=D65)
-    linear_image = develop_raw("IMG_6747.CR2")
+    linear_image = develop_raw("data/IMG_9036.CR3")
     linear_image = crop_img_interactively(linear_image, (1920, 1080))
     linear_image = linear_image.astype(np.float32) / 65535.0  # 16bit -> 0.0-1.0 float
     linear_image = np.clip(linear_image, 0.0, 1.0)  # クランプ
 
-    measured_swatches = extract_swatches(linear_image, debug=True)
+    measured_swatches = extract_swatches(linear_image)
 
     if measured_swatches is None:
         raise ValueError("ColorChecker swatches could not be extracted.")
@@ -114,12 +114,15 @@ if __name__ == "__main__":
         degree=2,
         root_polynomial_expansion=True,  # これがTrueだとRPCC、Falseだと通常の多項式
     )
+    save_path = "data/M_RPCC.npy"
+    np.save(save_path, M_RPCC)
+    print(f"Saved RPCC matrix to {save_path}")
 
     print("MRPCC Matrix:")
     print(M_RPCC)
 
     # load image which need color correction
-    uncorrected_image = develop_raw("IMG_6747.CR2")
+    uncorrected_image = develop_raw("data/IMG_9036.CR3")
     uncorrected_image = uncorrected_image.astype(np.float32) / 65535.0
     uncorrected_image = np.clip(uncorrected_image, 0.0, 1.0)  # クランプ
     print(
@@ -140,4 +143,4 @@ if __name__ == "__main__":
     plt.title("RPCC Corrected Image")
     plt.axis("off")
     plt.show()
-    cv2.imwrite("corrected_image.png", cv2.cvtColor(viz_result, cv2.COLOR_RGB2BGR))
+    cv2.imwrite("data/corrected_image.png", cv2.cvtColor(viz_result, cv2.COLOR_RGB2BGR))
