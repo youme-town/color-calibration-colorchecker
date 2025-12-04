@@ -7,6 +7,33 @@ from extract_colorchecker import extract_swatches
 import cv2
 
 
+def crop_img_interactively(img: np.ndarray, window_size: Tuple[int, int]) -> np.ndarray:
+    """
+    画像を表示して、マウスでドラッグした範囲をクロップする関数
+    Parameters:
+        img: 入力画像 (H, W, 3) のnumpy配列
+        window_size: 表示ウィンドウのサイズ (W, H)
+    Returns:
+        cropped_img: クロップされた画像
+    """
+    cv2.namedWindow(
+        "Crop Image - Select ROI and press ENTER or SPACE", cv2.WINDOW_NORMAL
+    )
+    cv2.resizeWindow(
+        "Crop Image - Select ROI and press ENTER or SPACE",
+        window_size[0],
+        window_size[1],
+    )
+    bgr_img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    roi = cv2.selectROI(
+        "Crop Image - Select ROI and press ENTER or SPACE", bgr_img, False
+    )
+    cv2.destroyAllWindows()
+    x, y, w, h = roi
+    cropped_img = img[y : y + h, x : x + w]
+    return cropped_img
+
+
 def load_lab_reference(filepath: str) -> np.ndarray:
     """
     カラーチャートの基準XYZデータをファイルから読み込む関数
@@ -71,13 +98,12 @@ if __name__ == "__main__":
     reference_lab = load_lab_reference("ref_lab.txt")
     D65 = colour.CCS_ILLUMINANTS["CIE 1931 2 Degree Standard Observer"]["D65"]
     reference_xyz = colour.Lab_to_XYZ(reference_lab, illuminant=D65)
-    print("Reference XYZ:")
-    print(reference_xyz)
-    linear_image = develop_raw("color_checker.CR3")
+    linear_image = develop_raw("IMG_6747.CR2")
+    linear_image = crop_img_interactively(linear_image, (1920, 1080))
     linear_image = linear_image.astype(np.float32) / 65535.0  # 16bit -> 0.0-1.0 float
     linear_image = np.clip(linear_image, 0.0, 1.0)  # クランプ
-    print("[Max/Min] Linear Image:", np.max(linear_image), np.min(linear_image))
-    measured_swatches = extract_swatches(linear_image)
+
+    measured_swatches = extract_swatches(linear_image, debug=True)
 
     if measured_swatches is None:
         raise ValueError("ColorChecker swatches could not be extracted.")
@@ -93,7 +119,7 @@ if __name__ == "__main__":
     print(M_RPCC)
 
     # load image which need color correction
-    uncorrected_image = develop_raw("color_checker.CR3")
+    uncorrected_image = develop_raw("IMG_6747.CR2")
     uncorrected_image = uncorrected_image.astype(np.float32) / 65535.0
     uncorrected_image = np.clip(uncorrected_image, 0.0, 1.0)  # クランプ
     print(

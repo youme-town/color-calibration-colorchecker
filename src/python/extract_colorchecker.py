@@ -2,11 +2,13 @@ import numpy as np
 import colour
 import matplotlib.pyplot as plt
 import cv2
-from colour_checker_detection import detect_colour_checkers_segmentation
-from raw_to_png import develop_raw
+from colour_checker_detection import (
+    detect_colour_checkers_segmentation,
+    detect_colour_checkers_inference,
+)
 
 
-def extract_swatches(linear_image):
+def extract_swatches(linear_image, debug: bool = True) -> np.ndarray:
     """
     カラーチャートを検出して正確なLinear RGB値を抽出する関数
 
@@ -37,11 +39,13 @@ def extract_swatches(linear_image):
     # ---------------------------------------------------------
     # additional_data=True にすると、補正後の画像やマスク情報が取れます
     detection_results = detect_colour_checkers_segmentation(
-        proxy_image, additional_data=True
+        proxy_image,
+        additional_data=True,
+        show=debug,
     )
 
-    if not detection_results:
-        print("カラーチャートが検出されませんでした。")
+    if len(detection_results) == 0:
+        print("カラーチャートの検出に失敗しました")
         return None
 
     # 最初の検出結果を取得
@@ -91,14 +95,15 @@ def extract_swatches(linear_image):
 
 
 # --- 実行例 ---
-if __name__ == "__main__":
-    # RAW画像をリニア現像して取得
-    raw_path = "test_images/colorchecker.CR3"  # 例:
-    img = develop_raw(raw_path)
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) / 65535.0  # 0.0-1.0に正規化
-    img_float = img_rgb.astype(np.float32)
-    result = extract_swatches(img_float)
+# if __name__ == "__main__":
+#     from raw_to_png import develop_raw
+#     # RAW画像をリニア現像して取得
+#     raw_path = "test_images/colorchecker.CR3"  # 例:
+#     img = develop_raw(raw_path)
+#     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) / 65535.0  # 0.0-1.0に正規化
+#     img_float = img_rgb.astype(np.float32)
+#     result = extract_swatches(img_float)
 
-    if result is not None:
-        print("\n--- 先頭のパッチ (Dark Skin) のLinear値 ---")
-        print(result[0])
+#     if result is not None:
+#         print("\n--- 先頭のパッチ (Dark Skin) のLinear値 ---")
+#         print(result[0])
