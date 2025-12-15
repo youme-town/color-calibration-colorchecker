@@ -14,43 +14,69 @@ from typing import Tuple, Literal
 from raw_to_png import develop_raw
 from extract_colorchecker import extract_swatches
 import cv2
+from matplotlib.widgets import RectangleSelector
 
 
 def crop_img_interactively(img: np.ndarray, window_size: Tuple[int, int]) -> np.ndarray:
     """
-    Display an image and crop a region selected by mouse drag.
-    (画像を表示して、マウスでドラッグした範囲をクロップする関数)
-
-    Parameters
-    ----------
-    img : np.ndarray
-        Input image as a numpy array with shape (H, W, 3) in RGB format.
-        (RGB形式の入力画像、形状は (H, W, 3))
-    window_size : Tuple[int, int]
-        Display window size as (width, height).
-        (表示ウィンドウのサイズ (幅, 高さ))
-
-    Returns
-    -------
-    np.ndarray
-        Cropped image based on the user-selected region of interest.
-        (ユーザーが選択した領域でクロップされた画像)
+    Display an image and crop a region selected by mouse drag (Matplotlib version).
+    (Matplotlib を用いて、マウスドラッグで選択した範囲をクロップする関数)
     """
-    cv2.namedWindow(
-        "Crop Image - Select ROI and press ENTER or SPACE", cv2.WINDOW_NORMAL
+    print("画像が表示されます。マウスでドラッグして領域を選択してください。")
+    print("ドラッグを離すと矩形が確定し、ウィンドウを閉じると処理を続行します。")
+
+    fig, ax = plt.subplots(figsize=(window_size[0] / 100, window_size[1] / 100))
+    ax.imshow(img)
+    ax.set_title("Drag to select ROI, then close window")
+    ax.axis("off")
+
+    roi_coords = {"x1": None, "y1": None, "x2": None, "y2": None}
+
+    def on_select(eclick, erelease):
+        # eclick: press event, erelease: release event
+        x1, y1 = int(eclick.xdata), int(eclick.ydata)
+        x2, y2 = int(erelease.xdata), int(erelease.ydata)
+        roi_coords["x1"], roi_coords["y1"] = min(x1, x2), min(y1, y2)
+        roi_coords["x2"], roi_coords["y2"] = max(x1, x2), max(y1, y2)
+        print(
+            f"Selected ROI: ({roi_coords['x1']}, {roi_coords['y1']})"
+            f" -> ({roi_coords['x2']}, {roi_coords['y2']})"
+        )
+
+    # RectangleSelector を作成（左ドラッグで矩形選択）
+    rect_selector = RectangleSelector(
+        ax,
+        on_select,
+        useblit=True,
+        button=[1],  # 左ボタン
+        interactive=True,
+        minspanx=5,
+        minspany=5,
     )
-    cv2.resizeWindow(
-        "Crop Image - Select ROI and press ENTER or SPACE",
-        window_size[0],
-        window_size[1],
+
+    plt.show()  # ウィンドウを閉じるまでブロック
+
+    # 何も選択されなかった場合は元画像を返す
+    if None in roi_coords.values():
+        print("ROI が選択されなかったため、元画像をそのまま返します。")
+        return img
+
+    x1, y1, x2, y2 = (
+        roi_coords["x1"],
+        roi_coords["y1"],
+        roi_coords["x2"],
+        roi_coords["y2"],
     )
-    bgr_img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-    roi = cv2.selectROI(
-        "Crop Image - Select ROI and press ENTER or SPACE", bgr_img, False
-    )
-    cv2.destroyAllWindows()
-    x, y, w, h = roi
-    cropped_img = img[y : y + h, x : x + w]
+
+    # 画像範囲外をクリップ
+    h, w = img.shape[:2]
+    x1 = max(0, min(w - 1, x1))
+    x2 = max(0, min(w, x2))
+    y1 = max(0, min(h - 1, y1))
+    y2 = max(0, min(h, y2))
+
+    cropped_img = img[y1:y2, x1:x2]
+    print(f"Cropped image shape: {cropped_img.shape}")
     return cropped_img
 
 
@@ -133,7 +159,7 @@ def apply_rpcc_correction(
 
     # Matrix multiplication: XYZ = M @ Expanded_RGB
     # (行列演算)
-    corrected_xyz = colour.algebra.vector_dot(RPCC_MATRIX, expanded_image)
+    corrected_xyz = colour.algebra.vecmul(RPCC_MATRIX, expanded_image)
 
     # Clip values to valid range (noise reduction)
     # (有効範囲にクリップ、ノイズ対策)
@@ -151,14 +177,17 @@ def main():
     reference_lab = load_lab_reference("data/ref_lab.txt")  # ColorChecker Lab reference
     D65 = colour.CCS_ILLUMINANTS["CIE 1931 2 Degree Standard Observer"]["D65"]
     reference_xyz = colour.Lab_to_XYZ(reference_lab, illuminant=D65)
-    linear_image = develop_raw("data/IMG_9036.CR3")
+    linear_image = develop_raw("data/EOSM6Mark2_colorchercker_sunlight_20251204.CR3")
+    # if needed, crop the image interactively to focus on ColorChecker
     linear_image = crop_img_interactively(linear_image, (1920, 1080))
     linear_image = (
         linear_image.astype(np.float32) / 65535.0
     )  # 16bit -> [0.0, 1.0] float
     linear_image = np.clip(linear_image, 0.0, 1.0)
 
-    measured_swatches = extract_swatches(linear_image)
+    measured_swatches = extract_swatches(
+        linear_image, interactive_brightness=True, debug=False
+    )
 
     if measured_swatches is None:
         raise ValueError("ColorChecker swatches could not be extracted.")
@@ -183,7 +212,9 @@ def main():
 
     # Load image that needs color correction
     # (色補正が必要な画像を読み込み)
-    uncorrected_image = develop_raw("data/IMG_9036.CR3")
+    uncorrected_image = develop_raw(
+        "data/EOSM6Mark2_colorchercker_sunlight_20251204.CR3"
+    )
     uncorrected_image = uncorrected_image.astype(np.float32) / 65535.0
     uncorrected_image = np.clip(uncorrected_image, 0.0, 1.0)
     print(
