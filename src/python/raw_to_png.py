@@ -21,8 +21,9 @@ def develop_raw(
             #    rawpy.ColorSpace.sRGB (=1) にするとsRGB変換行列がかかってしまうため、
             #    rawpy.ColorSpace.raw (=0) を指定してセンサーの生の混ざり具合を保持する
             output_color=rawpy.ColorSpace.raw,
-            # 5. ホワイトバランスはカメラの設定を使用する
-            use_camera_wb=True,
+            # 5. ホワイトバランス
+            use_camera_wb=False,
+            user_wb=[1.0, 1.0, 1.0, 1.0],  # ホワイトバランスを変更しない
             use_auto_wb=False,
             no_auto_scale=False,  # 自動スケールは有効のままにする
             user_sat=None,  # ハイライトクリップを行わない

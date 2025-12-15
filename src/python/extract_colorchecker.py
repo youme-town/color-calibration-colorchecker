@@ -8,7 +8,9 @@ from colour_checker_detection import (
 )
 
 
-def extract_swatches(linear_image, debug: bool = False) -> np.ndarray:
+def extract_swatches(
+    linear_image: np.ndarray, interactive_brightness: bool = True, debug: bool = False
+) -> np.ndarray:
     """
     カラーチャートを検出して正確なLinear RGB値を抽出する関数
 
@@ -23,16 +25,84 @@ def extract_swatches(linear_image, debug: bool = False) -> np.ndarray:
     # ---------------------------------------------------------
     # 暗いリニアデータのままだと検出できないため、線形性を保ったまま明るくします。
     # 平均輝度を見てゲインを自動調整、あるいは固定値(例: 5.0)を使用
-    mean_val = np.mean(linear_image)
-    if mean_val < 0.05:  # とても暗い場合
-        mean_val = max(mean_val, 1e-6)  # ゼロ除算防止
-        gain = 0.18 / mean_val  # 中性グレー(0.18)付近まで持ち上げる
-        print(f"画像が暗いため、Gain {gain:.2f}倍 で検出します")
-    else:
-        gain = 1.0
+    if not interactive_brightness:
+        mean_val = np.mean(linear_image)
+        if mean_val < 0.05:  # とても暗い場合
+            mean_val = max(mean_val, 1e-6)  # ゼロ除算防止
+            gain = 0.18 / mean_val  # 中性グレー(0.18)付近まで持ち上げる
+            print(f"画像が暗いため、Gain {gain:.2f}倍 で検出します")
+        else:
+            gain = 1.0
 
-    # 検出用画像 (クリップしないとエラーになる場合があるためclip)
-    proxy_image = np.clip(linear_image * gain, 0, 1.0)
+        # 検出用画像 (クリップしないとエラーになる場合があるためclip)
+        proxy_image = np.clip(linear_image * gain, 0, 1.0)
+    else:
+        # インタラクティブに明るさ調整 (Matplotlib版)
+        print("インタラクティブモード: ウィンドウ内のスライダーで明るさを調整し、")
+        print("「決定」ボタンを押すと確定して処理を続行します。")
+
+        import matplotlib.pyplot as plt
+        from matplotlib.widgets import Slider, Button
+
+        temp_image = linear_image.copy()
+
+        # 表示用のFigureを作成
+        fig, ax = plt.subplots(figsize=(10, 6))
+        plt.subplots_adjust(left=0.1, bottom=0.25)
+
+        def to_display_img(img):
+            disp = np.clip(colour.cctf_encoding(img), 0, 1.0)
+            return disp
+
+        # 初期表示
+        disp_img = to_display_img(temp_image)
+        img_artist = ax.imshow(disp_img)
+        ax.set_title("Adjust Brightness (use slider, then press 'Apply')")
+        ax.axis("off")
+
+        # スライダー領域
+        ax_gain = plt.axes([0.1, 0.1, 0.65, 0.03])
+        gain_slider = Slider(
+            ax=ax_gain,
+            label="Gain",
+            valmin=0.1,
+            valmax=10.0,
+            valinit=1.0,
+        )
+
+        # ボタン領域
+        ax_button = plt.axes([0.8, 0.05, 0.1, 0.06])
+        button = Button(ax_button, "Apply")
+
+        # スライダー更新時コールバック
+        def update(val):
+            g = gain_slider.val
+            updated = np.clip(linear_image * g, 0, None)
+            img_artist.set_data(to_display_img(updated))
+            fig.canvas.draw_idle()
+
+        gain_slider.on_changed(update)
+
+        # ボタン押下で確定
+        applied = {"done": False, "gain": 1.0}
+
+        def on_apply(event):
+            applied["done"] = True
+            applied["gain"] = gain_slider.val
+            plt.close(fig)
+
+        button.on_clicked(on_apply)
+
+        plt.show()
+
+        if not applied["done"]:
+            print("明るさ調整がキャンセルされました。")
+            return None
+
+        gain = applied["gain"]
+        temp_image = np.clip(linear_image * gain, 0, None)
+        proxy_image = temp_image
+        print(f"最終的なGainは {gain:.2f}倍 です")
 
     # ---------------------------------------------------------
     # 2. カラーチャート検出 (Segmentation)
