@@ -179,14 +179,14 @@ def main():
     reference_xyz = colour.Lab_to_XYZ(reference_lab, illuminant=D65)
     linear_image = develop_raw("data/EOSM6Mark2_colorchercker_sunlight_20251204.CR3")
     # if needed, crop the image interactively to focus on ColorChecker
-    linear_image = crop_img_interactively(linear_image, (1920, 1080))
     linear_image = (
         linear_image.astype(np.float32) / 65535.0
     )  # 16bit -> [0.0, 1.0] float
     linear_image = np.clip(linear_image, 0.0, 1.0)
+    linear_image = crop_img_interactively(linear_image, (1920, 1080))
 
     measured_swatches = extract_swatches(
-        linear_image, interactive_brightness=True, debug=False
+        linear_image, interactive_brightness=True, debug=True
     )
 
     if measured_swatches is None:
